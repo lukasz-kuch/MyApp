@@ -1,8 +1,7 @@
 const Book = require('../models/book')
 const path = require('path')
-const uploadPath = path.join('public', Book.coverImageBasePath)
+const imageMimeTypes = ['image/jpeg', 'image/png', 'image/gif']
 const Author = require('../models/author')
-const fs = require('fs')
 
 exports.book_list = (req, res) => {
   let query = Book.find()
@@ -33,24 +32,20 @@ exports.new_book = (req, res) => {
 }
 
 exports.create_book = (req, res) => {
-  const fileName = req.file != null ? req.file.filename : null
   const book = new Book({
     title: req.body.title,
     author: req.body.author,
     publishDate: new Date(req.body.publishDate),
     pageCount: req.body.pageCount,
-    coverImageName: fileName,
     description: req.body.description
   })
+  saveCover(book, req.body.cover)
   book.save()
     .then(() => {
       // res.redirect(`books/${newBook.id}`)
       res.redirect('books')
     })
     .catch((err) => {
-      if (book.coverImageName != null) {
-        removeBookCover(book.coverImageName)
-      }
       renderNewPage(res, book, true)
     })
 }
@@ -60,12 +55,6 @@ exports.delete_book = (req, res) => {
     .then(() => {
       res.send("deleted")
     })
-}
-
-function removeBookCover(fileName) {
-  fs.unlink(path.join(uploadPath, fileName), err => {
-    if (err) console.log(err)
-  })
 }
 
 async function renderNewPage(res, book, hasError = false) {
@@ -83,3 +72,11 @@ async function renderNewPage(res, book, hasError = false) {
     })
 }
 
+function saveCover(book, coverEncoded) {
+  if (coverEncoded == null) return
+  const cover = JSON.parse(coverEncoded)
+  if (cover != null && imageMimeTypes.includes(cover.type)) {
+    book.coverImage = new Buffer.from(cover.data, 'base64')
+    book.coverImageType = cover.type
+  }
+}
